@@ -44,15 +44,14 @@ namespace ToyGUI
 
         public PackageItemType m_type;
 
-        public ObjectType m_objectType;
-
-        public string id;
-        public string name;
-        public int width;
-        public int height;
-        public string file;
-        public bool exported;
+        public string m_id;
+        public string m_name;
         // public NTexture texture;
         // public ByteBuffer rawData;
+
+        public virtual object Load()
+        {
+            return null;
+        }
     }
 }
