@@ -2,10 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace ToyGUI
+public class FUIMaterialMgr
 {
-    public class FUIPackageItem
-    {
 
-    }
 }

@@ -6,8 +6,8 @@ namespace ToyGUI
 {
     public class FUIAtlasSprite
     {
-        public FUIPackageItem atlas;
-        public Rect rect = new Rect();
-        public bool rotated;
+        public FUIPackageItemAtlas m_atlas;
+        public Rect m_rect = new Rect();
+        public bool m_rotated;
     }
 }

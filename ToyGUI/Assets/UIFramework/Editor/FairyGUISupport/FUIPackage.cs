@@ -14,20 +14,34 @@ namespace ToyGUI
 
         public string AssetPath { get; private set; }
 
-        private List<FUIPackageItem> _itemList;
+        private List<FUIPackageItemBase> _itemList;
 
-        private Dictionary<string, FUIPackageItem> _itemsByIdDic;
+        private Dictionary<string, FUIPackageItemBase> _itemsByIdDic;
 
-        private Dictionary<string, FUIPackageItem> _itemsByNameDic;
+        private Dictionary<string, FUIPackageItemBase> _itemsByNameDic;
 
         private Dictionary<string, FUIAtlasSprite> _spriteDic;
 
+        public delegate object LoadResource(string name, string extension, System.Type type);
+
+        private LoadResource _loadFunc;
+
+        public LoadResource Loadfunc
+        {
+            get { return _loadFunc; }
+        }
+
         public FUIPackage()
         {
-            _itemList = new List<FUIPackageItem>();
-            _itemsByIdDic = new Dictionary<string, FUIPackageItem>();
-            _itemsByNameDic = new Dictionary<string, FUIPackageItem>();
+            _itemList = new List<FUIPackageItemBase>();
+            _itemsByIdDic = new Dictionary<string, FUIPackageItemBase>();
+            _itemsByNameDic = new Dictionary<string, FUIPackageItemBase>();
             _spriteDic = new Dictionary<string, FUIAtlasSprite>();
+        }
+
+        public Dictionary<string, FUIAtlasSprite> SpriteDic
+        {
+            get { return _spriteDic; }
         }
 
         public bool LoadPackage()
@@ -45,7 +59,7 @@ namespace ToyGUI
             return null;
         }
 
-        public List<FUIPackageItem> GetItems()
+        public List<FUIPackageItemBase> GetItems()
         {
             return _itemList;
         }

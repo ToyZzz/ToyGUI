@@ -40,7 +40,7 @@ namespace ToyGUI
 
     public class FUIPackageItemBase
     {
-        public FUIPackageItem m_owner;
+        public FUIPackage m_owner;
 
         public PackageItemType m_type;
 
