@@ -40,8 +40,13 @@ namespace ToyGUI
             }
             else
             {
-                
+                m_fTexture = FUITexture.Empty();
             }
+        }
+
+        public FUITexture LoadAsset()
+        {
+            return null;
         }
 
         public override object Load()

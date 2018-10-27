@@ -32,7 +32,16 @@ namespace ToyGUI
 
             if (tex == null)
             {
+                tex = FUITexture.CreateEmptyTexture();
+            }
 
+            if (m_fTexture == null)
+            {
+                m_fTexture = new FUITexture(tex, alphaTex, (float)tex.width / m_width, (float)tex.height / m_height);
+            }
+            else
+            {
+                m_fTexture.Reload(tex, alphaTex);
             }
         }
 
