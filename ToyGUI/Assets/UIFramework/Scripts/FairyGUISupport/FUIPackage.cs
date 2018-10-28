@@ -20,16 +20,11 @@ namespace ToyGUI
 
         private Dictionary<string, FUIPackageItemBase> _itemsByNameDic;
 
-        private Dictionary<string, FUIAtlasSprite> _spriteDic;
+        private Dictionary<string, FUIAtlasSprite> _spriteDic; 
 
         public delegate object LoadResource(string name, string extension, System.Type type);
 
-        private LoadResource _loadFunc;
-
-        public LoadResource Loadfunc
-        {
-            get { return _loadFunc; }
-        }
+        public LoadResource m_loadFunc;
 
         public FUIPackage()
         {
