@@ -10,11 +10,13 @@ namespace ToyGUI
 {
     public class FUIPackageMgr
     {
-        static Dictionary<string, FUIPackage> _packageInstById = new Dictionary<string, FUIPackage>();
-        static Dictionary<string, FUIPackage> _packageInstByName = new Dictionary<string, FUIPackage>();
-
-
         private static FUIPackageMgr _instance = null;
+
+        public Dictionary<string, FUIPackage> _packageInstById = new Dictionary<string, FUIPackage>();
+        public Dictionary<string, FUIPackage> _packageInstByName = new Dictionary<string, FUIPackage>();
+        public List<FUIPackage> _packageList = new List<FUIPackage>();
+
+     
         public static FUIPackageMgr Instance()
         {
             if (_instance == null)
@@ -55,17 +57,18 @@ namespace ToyGUI
                 else
                     Debug.LogWarning("FairyGUI: Cannot load ui package in '" + assetPath + "'");
             }
-
+            
             FUIByteBuffer buffer = new FUIByteBuffer(asset.bytes);
 
             FUIPackage pkg = new FUIPackage();
             pkg.m_loadFunc = loadFunc;
-            pkg.assetPath = assetPath;
+            pkg.AssetPath = assetPath;
             if (!pkg.LoadPackage(buffer, assetPath, assetPath))
+            {
                 return null;
-
-            _packageInstById[pkg.id] = pkg;
-            _packageInstByName[pkg.name] = pkg;
+            }
+            _packageInstById[pkg.Id] = pkg;
+            _packageInstByName[pkg.Name] = pkg;
             _packageInstById[assetPath] = pkg;
             _packageList.Add(pkg);
             return pkg;

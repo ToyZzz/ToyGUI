@@ -6,6 +6,9 @@ namespace ToyGUI
 {
     public class FUIByteBuffer
     {
+        public FUIByteBuffer(byte[] data, int offset = 0, int length = -1)
+        {
 
+        }
     }
 }

@@ -46,8 +46,6 @@ namespace ToyGUI
 
         public string m_id;
         public string m_name;
-        // public NTexture texture;
-        // public ByteBuffer rawData;
 
         public virtual object Load()
         {

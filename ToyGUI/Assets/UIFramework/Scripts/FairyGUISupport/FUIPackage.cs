@@ -12,7 +12,7 @@ namespace ToyGUI
 
         public string Name { get; private set; }
 
-        public string AssetPath { get; private set; }
+        public string AssetPath { get; set; }
 
         private List<FUIPackageItemBase> _itemList;
 
@@ -39,7 +39,7 @@ namespace ToyGUI
             get { return _spriteDic; }
         }
 
-        public bool LoadPackage()
+        public bool LoadPackage(FUIByteBuffer buffer, string packageSource, string assetNamePrefix)
         {
             return false;
         }

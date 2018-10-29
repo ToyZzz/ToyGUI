@@ -21,14 +21,14 @@ namespace ToyGUI
             Texture tex = null;
             Texture alphaTex = null;
 
-            tex = (Texture) m_owner.Loadfunc(fileName, ext, typeof(Texture));
+            tex = (Texture) m_owner.m_loadFunc(fileName, ext, typeof(Texture));
             if (tex == null)
             {
                 Debug.LogWarning("FairyGUI: texture '" + m_file + "' not found in " + m_name);
             }
 
             fileName = fileName + "!a";
-            alphaTex = (Texture2D)m_owner.Loadfunc(fileName, ext, typeof(Texture2D));
+            alphaTex = (Texture2D)m_owner.m_loadFunc(fileName, ext, typeof(Texture2D));
 
             if (tex == null)
             {
