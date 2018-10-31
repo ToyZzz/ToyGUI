@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using FairyGUI;
 using FairyGUI.Utils;
 using UnityEngine;
@@ -18,6 +19,7 @@ public class UIPackageCheckTool : Editor
         ErrorBlendMode, // 使用了错误的混合模式
         UseGraphMask, // 使用了自定义遮罩
         UseOverflowTypeHidden, // 使用了隐藏的溢出处理
+        AssetsMissing// 资源丢失
     }
 
     public static string[] FairyGUIPackagePath = new[]
@@ -28,7 +30,19 @@ public class UIPackageCheckTool : Editor
     public static string[] CommonUINames = new[]
     {
         "CommonUI",
-        "CommonBg"
+        "CommonBg",
+        "CommonIcon",
+        "ComponentUI",
+        "CollegeIconPage1",
+        "CollegeIconPage2",
+        "CollegeIconPage3",
+        "CollegeIconPage4",
+        "CollegeIconPage5",
+        "CollegeIconPage6",
+        "CollegeIconPage7",
+        "CollegeIconPage8",
+        "CommanderCard",
+
     };
 
     [MenuItem("KaneTempTest/UIPackageCheck")]
@@ -43,13 +57,14 @@ public class UIPackageCheckTool : Editor
             // Debug.Log(assetPath);
             UIPackage.AddPackage(assetPath);
         }
-
+        m_UIPacakgeAnalysisInfoList = new List<UIPackageAnalysisInfo>();
         List<UIPackage> loadPackageList = UIPackage.GetPackages();
         for (int i = 0; i < loadPackageList.Count; i++)
         {
             AnalysisPackage(loadPackageList[i]);
-            break;
         }
+
+         OutputAnalysisFile();
 
         UIPackage.RemoveAllPackages();
     }
@@ -61,6 +76,49 @@ public class UIPackageCheckTool : Editor
     public static List<NeedCheckComponentInfo> m_needCheckComponentList = new List<NeedCheckComponentInfo>();
 
     public static string m_curCheckGObjectName;
+
+    public static List<UIPackageAnalysisInfo> m_UIPacakgeAnalysisInfoList = new List<UIPackageAnalysisInfo>();
+
+    public static void OutputAnalysisFile()
+    {
+        StringBuilder stringBuilder = new StringBuilder();
+        foreach (UIPackageAnalysisInfo analysisInfo in m_UIPacakgeAnalysisInfoList)
+        {
+            stringBuilder.AppendLine(analysisInfo.m_name);
+            stringBuilder.AppendLine("    ├─── Atlas Infos:");
+            foreach (KeyValuePair<NTexture, AtlasAnalysisInfo> kvp in analysisInfo.m_atlasAnalysisInfoDic)
+            {
+                string atlasName = kvp.Value.m_id.PadRight(10, ' ');
+                string atlasWidth = kvp.Value.m_width.ToString().PadRight(4, ' ');
+                string atlasHeight = kvp.Value.m_height.ToString().PadRight(4, ' ');
+                string atlasFillingRate = string.Format("{0:P}", kvp.Value.m_fillingRate);
+                stringBuilder.AppendLine(string.Format("    │   ├─── {0} Size: {1} * {2} FillingRate: {3}", atlasName, atlasWidth, atlasHeight, atlasFillingRate));
+            }
+            stringBuilder.AppendLine("    ├─── Need Check:");
+            foreach (var needCheckItem in analysisInfo.m_needCheckComponentInfoList)
+            {
+                stringBuilder.AppendLine(string.Format("    │   ├─── {0}", needCheckItem.ToString()));
+            }
+
+            stringBuilder.AppendLine("    └───────");
+        }
+
+        string filePath = Application.dataPath + "/a.txt";
+        FileStream fs = new FileStream(filePath, FileMode.Create);
+        StreamWriter sw = new StreamWriter(fs);
+        //开始写入
+        sw.Write(stringBuilder.ToString());
+        //清空缓冲区
+        sw.Flush();
+        //关闭流
+        sw.Close();
+        fs.Close();
+    }
+
+    public static void Clean()
+    {
+
+    }
 
     public static void AnalysisPackage(UIPackage uiPackage)
     {
@@ -80,13 +138,25 @@ public class UIPackageCheckTool : Editor
                 case PackageItemType.Component:
                     AnalysisItemComponent(packageItem);
                     break;
-                default:
+                case PackageItemType.Font:
 
+                    break;
+                case PackageItemType.MovieClip:
+                    AnalysisItemMovieClip(packageItem);
+                    break;
+                default:
+                    
                     break;
             }
         }
 
         m_curPackageAnalysisInfo.DoAnalysis();
+    }
+
+    public static void AnalysisItemMovieClip(PackageItem packageItem)
+    {
+        packageItem.Load();
+        m_curPackageAnalysisInfo.m_movieClipItemList.Add(packageItem);
     }
 
     public static void AnalysisItemAtlas(PackageItem packageItem)
@@ -211,16 +281,22 @@ public class UIPackageCheckTool : Editor
                     pkg = packageItem.owner;
                 }
 
-                if (pkg != m_curAnalysisPackage && !IsUseCommonAsset(pkg.name))
+                if (pkg == null)
                 {
-                    Debug.Log(pkg.name);
-                    NeedCheckComponentInfo ncci = new NeedCheckComponentInfo(packageItem, pkg);
-                    m_needCheckComponentList.Add(ncci);
+                    m_curPackageAnalysisInfo.m_needCheckComponentInfoList.Add(
+                        new NeedCheckComponentInfo(packageItem, pkg, NeedCheckReasonType.AssetsMissing));
                 }
-
+                else
+                {
+                    if (pkg != m_curAnalysisPackage && !IsUseCommonAsset(pkg.name))
+                    {
+                        // Debug.Log(pkg.name);
+                        m_curPackageAnalysisInfo.m_needCheckComponentInfoList.Add(
+                            new NeedCheckComponentInfo(packageItem, pkg));
+                    }
+                }
                 pi = pkg != null ? pkg.GetItem(src) : null;
             }
-
             if (pi != null)
             {
                 // Debug.Log("pi的名字是  " + pi.name);
@@ -233,7 +309,6 @@ public class UIPackageCheckTool : Editor
             {
                 // child = UIObjectFactory.NewObject(type);
                 // Debug.Log("child的类型是  " + type);
-
             }
 
             // }
@@ -294,25 +369,19 @@ public class UIPackageCheckTool : Editor
         buffer.Seek(0, 4);
 
         buffer.Skip(2); //customData
-        // this.opaque = buffer.ReadBool();
+        buffer.ReadBool();
         int maskId = buffer.ReadShort();
         if (maskId != -1)
         {
-            this.mask = GetChildAt(maskId).displayObject;
-            if (buffer.ReadBool())
-                this.reversedMask = true;
+            m_curPackageAnalysisInfo.m_needCheckComponentInfoList.Add(new NeedCheckComponentInfo(packageItem, NeedCheckReasonType.UseGraphMask));
+            // Debug.Log(packageItem.name);
+            // Debug.Log("该Gcomponent使用了自定义遮罩");
+            //使用了遮罩
+            // this.mask = GetChildAt(maskId).displayObject;
+            // if (buffer.ReadBool())
+            //     this.reversedMask = true;
         }
-        string hitTestId = buffer.ReadS();
-        if (hitTestId != null)
-        {
-            PackageItem pi = packageItem.owner.GetItem(hitTestId);
-            if (pi != null && pi.pixelHitTestData != null)
-            {
-                int i1 = buffer.ReadInt();
-                int i2 = buffer.ReadInt();
-                this.rootContainer.hitArea = new PixelHitTest(pi.pixelHitTestData, i1, i2);
-            }
-        }
+      
     }
 
     public static void AnalysisGObjectInfo(PackageItem packageItem, ByteBuffer buffer, int beginPos)
@@ -361,6 +430,7 @@ public class UIPackageCheckTool : Editor
         {
             buffer.ReadFloat();
             buffer.ReadFloat();
+            buffer.ReadBool();
             // SetPivot(f1, f2, buffer.ReadBool());
         }
 
@@ -405,9 +475,9 @@ public class UIPackageCheckTool : Editor
             cf.AdjustContrast(buffer.ReadFloat());
             cf.AdjustSaturation(buffer.ReadFloat());
             cf.AdjustHue(buffer.ReadFloat());
-            // Debug.Log(name);
+            // Debug.Log(m_curCheckGObjectName);
             // Debug.Log(id);
-            Debug.Log("该对象有一个滤镜");
+            // Debug.Log("该对象有一个滤镜");
             m_needCheckComponentList.Add(new NeedCheckComponentInfo(packageItem, NeedCheckReasonType.UseColorFilter));
         }
 
@@ -426,11 +496,15 @@ public class UIPackageAnalysisInfo
 
     public string m_name;
 
-    public List<AtlasAnalysisInfo> m_atlasAnalysisInfoList = new List<AtlasAnalysisInfo>();
+    // public List<AtlasAnalysisInfo> m_atlasAnalysisInfoList = new List<AtlasAnalysisInfo>();
+
+    public Dictionary<NTexture, AtlasAnalysisInfo> m_atlasAnalysisInfoDic = new Dictionary<NTexture, AtlasAnalysisInfo>();
 
     public Dictionary<NTexture, List<PackageItem>> m_ImageItemDic = new Dictionary<NTexture, List<PackageItem>>();
 
     public List<PackageItem> m_atlasItemList = new List<PackageItem>();
+
+    public List<PackageItem> m_movieClipItemList = new List<PackageItem>();
 
     public List<NeedCheckComponentInfo> m_needCheckComponentInfoList = new List<NeedCheckComponentInfo>();
 
@@ -448,28 +522,50 @@ public class UIPackageAnalysisInfo
 
     public void DoAnalysis()
     {
+        // Debug.Log("Cur Package Name  " + m_name);
         for (int i = 0; i < m_atlasItemList.Count; i++)
         {
             AtlasAnalysisInfo aai = new AtlasAnalysisInfo(m_atlasItemList[i]);
             List<PackageItem> spriteList = null;
             if (!m_ImageItemDic.TryGetValue(m_atlasItemList[i].texture, out spriteList))
             {
-                return;
+                m_atlasAnalysisInfoDic.Add(m_atlasItemList[i].texture,aai);
+                continue;
             }
 
             foreach (var imagePackageItem in spriteList)
             {
                 aai.m_spriteTotalSize += imagePackageItem.texture.width * imagePackageItem.texture.height;
             }
-            m_atlasAnalysisInfoList.Add(aai);
-            Debug.Log(aai.m_id + string.Format(" 尺寸： {0} * {1}",aai.m_width, aai.m_height) + " 填充率： " + aai.m_fillingRate);
+            m_atlasAnalysisInfoDic.Add(m_atlasItemList[i].texture, aai);
+        }
+
+        for (int i = 0; i < m_movieClipItemList.Count; i++)
+        {
+            NTexture targetNTexture = m_movieClipItemList[i].texture.root;
+            AtlasAnalysisInfo targetAtlasAnalysisInfo = null;
+            if (m_atlasAnalysisInfoDic.TryGetValue(targetNTexture, out targetAtlasAnalysisInfo))
+            {
+                foreach (var frame in m_movieClipItemList[i].frames)
+                {
+                    int frameSize = Mathf.CeilToInt(frame.rect.width * frame.rect.height);
+                    targetAtlasAnalysisInfo.m_spriteTotalSize += frameSize;
+                }
+            } 
+        }
+        /*
+        foreach (KeyValuePair<NTexture, AtlasAnalysisInfo> kvp in m_atlasAnalysisInfoDic)
+        {
+            Debug.Log(kvp.Value.m_id + string.Format(" 尺寸： {0} * {1}", kvp.Value.m_width, kvp.Value.m_height) + " 填充率： " + kvp.Value.m_fillingRate);
         }
 
         for (int i = 0; i < m_needCheckComponentInfoList.Count; i++)
         {
             var needCheckTarget = m_needCheckComponentInfoList[i];
-            Debug.Log(string.Format("{0} -> {1} 检查原因 {2}", needCheckTarget.m_name, needCheckTarget.m_needCheckChildName, needCheckTarget.m_needCheckReasonType.ToString()));
+            Debug.Log(needCheckTarget.ToString());
         }
+        */
+        UIPackageCheckTool.m_UIPacakgeAnalysisInfoList.Add(this);
     }
 }
 
@@ -499,18 +595,25 @@ public class AtlasAnalysisInfo
 
 public class NeedCheckComponentInfo
 {
-    public NeedCheckComponentInfo(PackageItem item, UIPackage otherPackage)
+    public NeedCheckComponentInfo(PackageItem item, UIPackage otherPackage, UIPackageCheckTool.NeedCheckReasonType type = UIPackageCheckTool.NeedCheckReasonType.UseOtherPackageAssets)
     {
+        m_type = item.type;
         m_name = item.name;
-        m_useOtherAssetPackageName = otherPackage.name;
-        m_needCheckReasonType = UIPackageCheckTool.NeedCheckReasonType.UseOtherPackageAssets;
+        if (otherPackage != null)
+        {
+            m_useOtherAssetPackageName = otherPackage.name;
+        }
+        m_needCheckReasonType = type;
     }
 
     public NeedCheckComponentInfo(PackageItem item, UIPackageCheckTool.NeedCheckReasonType reasonType)
     {
+        m_type = item.type;
         m_name = item.name;
         m_needCheckReasonType = reasonType;
     }
+
+    public PackageItemType m_type;
 
     public string m_name;
 
@@ -519,5 +622,25 @@ public class NeedCheckComponentInfo
     public UIPackageCheckTool.NeedCheckReasonType m_needCheckReasonType;
 
     public string m_useOtherAssetPackageName;
-}
 
+    public override string ToString()
+    {
+        switch (m_type)
+        {
+            case PackageItemType.Image:
+                return string.Format("{0} -> {1} 检查原因 {2}",
+                    m_type.ToString(), m_name, m_needCheckReasonType.ToString());
+                break;
+            case PackageItemType.MovieClip:
+                return string.Format("{0} -> {1} 检查原因 {2}",
+                    m_type.ToString(), m_name, m_needCheckReasonType.ToString());
+                break;
+            case PackageItemType.Component:
+                return string.Format("{0} -> {1} 检查原因 {2}",
+                    m_name, m_needCheckChildName, m_needCheckReasonType.ToString());
+                break;
+        }
+        Debug.Log("Error");
+        return base.ToString();
+    }
+}
