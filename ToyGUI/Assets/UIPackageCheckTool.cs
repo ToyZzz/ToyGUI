@@ -22,6 +22,17 @@ public class UIPackageCheckTool : Editor
         AssetsMissing// 资源丢失
     }
 
+    public static string[] CheckReasonStrings = new[]
+    {
+        "使用了其他非公共包内资源",
+        "基本属性中设置了置灰",
+        "效果属性中设置了滤镜",
+        "效果属性中设置了错误的BlendMode",
+        "基本组件中设置了自定义遮罩",
+        "基本组件中设置了错误的溢出处理",
+        "使用了已经丢失的资源"
+    };
+
     public static string[] FairyGUIPackagePath = new[]
     {
         "Assets/ResourcesAssets/GUI"
@@ -45,7 +56,7 @@ public class UIPackageCheckTool : Editor
 
     };
 
-    [MenuItem("KaneTempTest/UIPackageCheck")]
+    [MenuItem("Tools/UIPackage分析")]
     public static void UIPackageCheck()
     {
         UIPackage.RemoveAllPackages();
@@ -64,7 +75,7 @@ public class UIPackageCheckTool : Editor
             AnalysisPackage(loadPackageList[i]);
         }
 
-         OutputAnalysisFile();
+        OutputAnalysisFile();
 
         UIPackage.RemoveAllPackages();
     }
@@ -94,25 +105,33 @@ public class UIPackageCheckTool : Editor
                 string atlasFillingRate = string.Format("{0:P}", kvp.Value.m_fillingRate);
                 stringBuilder.AppendLine(string.Format("    │   ├─── {0} Size: {1} * {2} FillingRate: {3}", atlasName, atlasWidth, atlasHeight, atlasFillingRate));
             }
+            stringBuilder.AppendLine("    ├─── Use Common Package:");
+            foreach (var commonPackageName in analysisInfo.m_commonPackageUse)
+            {
+                stringBuilder.AppendLine(string.Format("    │   ├─── {0}", commonPackageName));
+            }
             stringBuilder.AppendLine("    ├─── Need Check:");
             foreach (var needCheckItem in analysisInfo.m_needCheckComponentInfoList)
             {
-                stringBuilder.AppendLine(string.Format("    │   ├─── {0}", needCheckItem.ToString()));
+                stringBuilder.AppendLine(needCheckItem.ToString());
             }
 
             stringBuilder.AppendLine("    └───────");
         }
 
-        string filePath = Application.dataPath + "/a.txt";
+        string filePath = Application.dataPath + "/UIPackageAnalysis.txt";
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
         FileStream fs = new FileStream(filePath, FileMode.Create);
         StreamWriter sw = new StreamWriter(fs);
-        //开始写入
         sw.Write(stringBuilder.ToString());
-        //清空缓冲区
         sw.Flush();
-        //关闭流
         sw.Close();
         fs.Close();
+
+        AssetDatabase.Refresh();
     }
 
     public static void Clean()
@@ -186,6 +205,7 @@ public class UIPackageCheckTool : Editor
 
     public static void AnalysisItemComponent(PackageItem packageItem)
     {
+
         ByteBuffer buffer = packageItem.owner.GetItemAsset(packageItem) as ByteBuffer;
         buffer.Seek(0, 0);
         buffer.ReadInt();
@@ -283,40 +303,32 @@ public class UIPackageCheckTool : Editor
 
                 if (pkg == null)
                 {
-                    m_curPackageAnalysisInfo.m_needCheckComponentInfoList.Add(
+                    m_needCheckComponentList.Add(
                         new NeedCheckComponentInfo(packageItem, pkg, NeedCheckReasonType.AssetsMissing));
                 }
                 else
                 {
-                    if (pkg != m_curAnalysisPackage && !IsUseCommonAsset(pkg.name))
+                    if (pkg != m_curAnalysisPackage)
                     {
-                        // Debug.Log(pkg.name);
-                        m_curPackageAnalysisInfo.m_needCheckComponentInfoList.Add(
-                            new NeedCheckComponentInfo(packageItem, pkg));
+                        if (IsUseCommonAsset(pkg.name))
+                        {
+                            if (!m_curPackageAnalysisInfo.m_commonPackageUse.Contains(pkg.name))
+                            {
+                                m_curPackageAnalysisInfo.m_commonPackageUse.Add(pkg.name);
+                            }
+                        }
+                        else
+                        {
+                            m_needCheckComponentList.Add(new NeedCheckComponentInfo(packageItem, pkg));
+                        }
+
                     }
                 }
+
                 pi = pkg != null ? pkg.GetItem(src) : null;
             }
-            if (pi != null)
-            {
-                // Debug.Log("pi的名字是  " + pi.name);
-                // Debug.Log("pi的类型是  " + pi.objectType);
-                // child = UIObjectFactory.NewObject(pi);
-                // child.packageItem = pi;
-                // child.ConstructFromResource();
-            }
-            else
-            {
-                // child = UIObjectFactory.NewObject(type);
-                // Debug.Log("child的类型是  " + type);
-            }
 
-            // }
-
-            // child.underConstruct = true;
             AnalysisGObjectInfo(packageItem, buffer, curPos);
-            // child.InternalSetParent(this);
-            // _children.Add(child);
             if (m_needCheckComponentList.Count > 0)
             {
                 foreach (var needCheckChild in m_needCheckComponentList)
@@ -331,41 +343,6 @@ public class UIPackageCheckTool : Editor
             buffer.position = curPos + dataLen;
         }
 
-        /*
-        buffer.Seek(0, 3);
-        // this.relations.Setup(buffer, true);
-
-        buffer.Seek(0, 2);
-        buffer.Skip(2);
-
-        for (int i = 0; i < childCount; i++)
-        {
-            int nextPos = buffer.ReadShort();
-            nextPos += buffer.position;
-
-            buffer.Seek(buffer.position, 3);
-            _children[i].relations.Setup(buffer, false);
-
-            buffer.position = nextPos;
-        }
-
-        buffer.Seek(0, 2);
-        buffer.Skip(2);
-
-        for (int i = 0; i < childCount; i++)
-        {
-            int nextPos = buffer.ReadShort();
-            nextPos += buffer.position;
-
-            child = _children[i];
-            child.Setup_AfterAdd(buffer, buffer.position);
-            child.underConstruct = false;
-            if (child.displayObject != null)
-                ToolSet.SetParent(child.displayObject.cachedTransform, this.displayObject.cachedTransform);
-
-            buffer.position = nextPos;
-        }
-        */
         buffer.Seek(0, 4);
 
         buffer.Skip(2); //customData
@@ -374,12 +351,6 @@ public class UIPackageCheckTool : Editor
         if (maskId != -1)
         {
             m_curPackageAnalysisInfo.m_needCheckComponentInfoList.Add(new NeedCheckComponentInfo(packageItem, NeedCheckReasonType.UseGraphMask));
-            // Debug.Log(packageItem.name);
-            // Debug.Log("该Gcomponent使用了自定义遮罩");
-            //使用了遮罩
-            // this.mask = GetChildAt(maskId).displayObject;
-            // if (buffer.ReadBool())
-            //     this.reversedMask = true;
         }
       
     }
@@ -508,6 +479,8 @@ public class UIPackageAnalysisInfo
 
     public List<NeedCheckComponentInfo> m_needCheckComponentInfoList = new List<NeedCheckComponentInfo>();
 
+    public HashSet<string> m_commonPackageUse = new HashSet<string>();
+
     public void AddImagePackageItem(PackageItem packageItem)
     {
         List<PackageItem> spriteItemList = null;
@@ -628,19 +601,29 @@ public class NeedCheckComponentInfo
         switch (m_type)
         {
             case PackageItemType.Image:
-                return string.Format("{0} -> {1} 检查原因 {2}",
-                    m_type.ToString(), m_name, m_needCheckReasonType.ToString());
-                break;
+                return string.Format("    │   ├─── {0} {1} {2}", "[Image]".PadRight(13, ' '), m_name.PadRight(20, ' '),
+                    UIPackageCheckTool.CheckReasonStrings[(int) m_needCheckReasonType]);
             case PackageItemType.MovieClip:
-                return string.Format("{0} -> {1} 检查原因 {2}",
-                    m_type.ToString(), m_name, m_needCheckReasonType.ToString());
-                break;
+                return string.Format("    │   ├─── {0} {1} {2}", "[MovieClip]".PadRight(13, ' '), m_name.PadRight(20, ' '),
+                    UIPackageCheckTool.CheckReasonStrings[(int)m_needCheckReasonType]);
             case PackageItemType.Component:
-                return string.Format("{0} -> {1} 检查原因 {2}",
-                    m_name, m_needCheckChildName, m_needCheckReasonType.ToString());
-                break;
+                if (string.IsNullOrEmpty(m_needCheckChildName))
+                {
+                    string a = "[Component]".PadRight(13, ' ');
+                    string b = m_name.PadRight(20, ' ');
+                    string d = UIPackageCheckTool.CheckReasonStrings[(int)m_needCheckReasonType];
+                    return string.Format("    │   ├─── {0} {1} {2}", a, b, d);
+                }
+                else
+                {
+                    string a = "[Component]".PadRight(13, ' ');
+                    string b = m_name.PadRight(20, ' ');
+                    string c = m_needCheckChildName.PadRight(12, ' ');
+                    string d = UIPackageCheckTool.CheckReasonStrings[(int)m_needCheckReasonType];
+                    return string.Format("    │   ├─── {0} {1} -> {2} {3}", a, b, c, d);
+                }    
         }
-        Debug.Log("Error");
-        return base.ToString();
+        // Debug.Log("Error");
+        return "    │   ├───Error Type Info";
     }
 }
